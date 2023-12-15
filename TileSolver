@@ -1,0 +1,59 @@
+using namespace std;
+
+Tile::Tile(string n, string e, string s, string w) {
+    _id = n + e + s + w;    // sets an id for internal use, do not change this line!
+    _north = n;
+    _east = e;
+    _south = s;
+    _west = w;
+}
+
+string Tile::getEdge(Direction dir) const {
+    if (dir == NORTH) {
+        return _north;
+    }
+    if (dir == EAST){
+        return _east;
+    }
+    if (dir == WEST){
+        return _west;
+    }
+    if (dir == SOUTH){
+        return _south;
+    }
+    return "";
+}
+
+void Tile::rotate() {
+    string oldwest = _west;
+    string oldnorth = _north;
+    string oldsouth = _south;
+    string oldeast = _east;
+    _north = _west;
+    _west = _south;
+    _east = oldnorth;
+    _south = oldeast;
+
+}
+
+
+/* The functions below have already been written for you! */
+
+Tile::Tile() : Tile("","","","") {}    // default constructor creates blank tile
+
+bool Tile::isBlank() const {
+    return (_north == "" && _east == "" && _south == "" && _west == "");
+}
+
+string Tile::displayTileStr() const{
+    string s;
+    s += "  " + _north + "\n";
+    s += _west;
+    s += "   " + _east + "\n";
+    s += "  " + _south + "\n";
+    return s;
+}
+
+string Tile::toString() const {
+    return _north + "-" + _east + "-" + _south + "-" + _west;
+}
