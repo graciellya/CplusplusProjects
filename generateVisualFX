@@ -1,0 +1,159 @@
+#include "ParticleSystem.h"
+#include "DrawParticle.h"
+using namespace std;
+
+int minLifetime = 2;
+int maxLifetime = 10;
+
+ParticleSystem::ParticleSystem() {
+    _numberOfParticles = 0;
+    _head = nullptr;
+    _tail = nullptr;
+}
+
+ParticleSystem::~ParticleSystem() {
+    while (_head != nullptr) {
+        ParticleCell* next = _head->next;
+        delete _head;
+        _head = next;
+  };
+}
+
+int ParticleSystem::numParticles() const {
+    return _numberOfParticles;
+}
+
+void ParticleSystem::add(Particle particle) {
+    //draws particles in the order they are stored
+
+    // Update your code for add to ensure that you store particle lifetimes for later,
+    // that you don’t add particles that are offscreen, and that you don’t add particles with negative lifetimes
+
+    int lifetime = particle.lifetime;
+    if (particle.x >= 0 && particle.y >= 0
+        && particle.x < SCENE_WIDTH && particle.y < SCENE_HEIGHT
+        && lifetime >= 0) {
+        ParticleCell* addedParticle = new ParticleCell{particle, nullptr, nullptr};
+            if (_numberOfParticles == 0) {
+                _head = addedParticle;
+                _tail = addedParticle;
+            }
+            if (_numberOfParticles != 0) {
+                addedParticle->prev = _tail;
+                addedParticle->next = nullptr;
+                _tail->next = addedParticle;
+                //update tail
+                _tail = addedParticle;
+            }
+            _numberOfParticles++;
+    }
+}
+
+
+void ParticleSystem::drawParticles() const {
+    ParticleCell* curr = _head;
+    // draws all the particles in the system in the order they’re stored.
+    while (curr != nullptr) {
+        ParticleCell* next = curr->next;
+        drawParticle(curr->particle.x, curr->particle.y, curr->particle.color);
+        curr = next;
+    };
+}
+
+void ParticleSystem::removeParticle() {
+    ParticleCell* curr = _head;
+    ParticleCell* prevParticle = curr->prev;
+    ParticleCell* nextParticle = curr->next;
+
+    if (prevParticle != nullptr && nextParticle != nullptr){
+        prevParticle->next = nextParticle;
+        nextParticle->prev = prevParticle;
+        //delete curr;
+    }
+    if (prevParticle == nullptr && nextParticle == nullptr){
+        _head = nullptr;
+        _tail = nullptr;
+    }
+    if (prevParticle == nullptr && nextParticle != nullptr) {
+        _head = nextParticle;
+        nextParticle->prev = nullptr;
+        //delete curr;
+    }
+    if (nextParticle == nullptr && prevParticle != nullptr) {
+        prevParticle->next = nullptr;
+        _tail = prevParticle;
+        //delete curr;
+    }
+    delete curr;
+    _numberOfParticles--;
+
+}
+
+
+void ParticleSystem::moveParticles() {
+    ParticleCell* curr = _head;
+
+    while (curr != nullptr){
+        int lifetime = curr -> particle.lifetime;
+        double particleX = curr->particle.x;
+        double particleY = curr->particle.y;
+        ParticleCell* prevParticle = curr->prev;
+        ParticleCell* nextParticle = curr->next;
+
+        curr -> particle.x += curr -> particle.dx;
+        curr -> particle.y += curr -> particle.dy;
+        curr -> particle.lifetime--;
+
+
+        if (curr->particle.type == ParticleType::BALLISTIC || curr->particle.type == ParticleType::FIREWORK ) {
+                curr->particle.dy += 1;
+        }
+
+        if (lifetime > 0 && particleX >= 0 && particleY >= 0 &&
+            curr->particle.y < SCENE_HEIGHT && curr->particle.x < SCENE_WIDTH) {
+                curr = curr->next;
+        } else {
+                ParticleCell* nextP = curr->next;
+                if (prevParticle != nullptr && nextParticle != nullptr){
+                    prevParticle->next = nextParticle;
+                    nextParticle->prev = prevParticle;
+                }
+                if (prevParticle == nullptr && nextParticle == nullptr){
+                    _head = nullptr;
+                    _tail = nullptr;
+                }
+                if (prevParticle == nullptr && nextParticle != nullptr) {
+                    _head = nextParticle;
+                    nextParticle->prev = nullptr;
+                }
+                if (nextParticle == nullptr && prevParticle != nullptr) {
+                    prevParticle->next = nullptr;
+                    _tail = prevParticle;
+                }
+                if (curr->particle.type == ParticleType::FIREWORK && lifetime < 0) {
+                    for (int i = 0; i < 50; i++) {
+                        Particle newParticle;
+
+                        // set x & y to particle thats being remove
+                        newParticle.type = ParticleType::STREAMER;
+                        newParticle.x = curr->particle.x;
+                        newParticle.y = curr->particle.y;
+                        // dx and dy random real(-3,3)
+                        newParticle.dx = randomReal(-3,3);
+                        newParticle.dy = randomReal(-3,3);
+                        // lifetime random int(2,10)
+                        newParticle.lifetime = randomInteger(minLifetime,maxLifetime);
+                        // add 50 streamers to function
+                        add(newParticle);
+
+                    }
+                }
+                delete curr;
+                _numberOfParticles--;
+                curr = nextP;
+        }
+
+        }
+    }
+
+/* * * 
