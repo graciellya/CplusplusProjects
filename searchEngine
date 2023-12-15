@@ -1,0 +1,124 @@
+#include <iostream>
+#include <fstream>
+#include "error.h"
+#include "filelib.h"
+#include "map.h"
+#include "search.h"
+#include "set.h"
+#include "simpio.h"
+#include "strlib.h"
+#include "vector.h"
+#include "SimpleTest.h" // IWYU pragma: keep (needed to quiet spurious warning)
+using namespace std;
+
+
+// cleanToken takes string, creates an empty result string and loops over each char in the string,
+// checking if its an alphabetic char (which it puts in lowercase) or digit char, adding it to result string
+
+string cleanToken(string s) {
+    string result = "";
+    for (int i = 0; i < s.length(); i++) {
+        if (isalpha(s[i])) {
+            result += toLowerCase(s[i]);
+        }
+        if (isdigit(s[i])) {
+            result += s[i];
+        }
+
+    }
+    return result;
+}
+
+// gatherTokens takes in a string, creates a set, split string at each space, loops over the vector of split strings, cleaning each
+// string (or "token") and adds it to the set as long as its not an empty string
+Set<string> gatherTokens(string text) {
+    Set<string> tokens;
+    Vector<string> split = stringSplit(text, " ");
+
+    for (int i = 0; i < split.size(); i++) {
+        string cleanedToken = cleanToken(split[i]);
+        if (cleanedToken != "") {
+            tokens.add(cleanedToken);
+        }
+    }
+
+    return tokens;
+}
+
+// buildIndex reads dbfile line for line, creates vector lines, loops through each line.
+// I used % to loop over the even lines because that's where the tokens where and got the URLs from the rest of the lines
+// i think looped over each token, adding the URLs to the values for each token, I then incremented for each URL
+int buildIndex(string dbfile, Map<string, Set<string>>& index) {
+    ifstream in;
+
+    if (!openFile(in, dbfile))
+        error("Cannot open file named " + dbfile);
+
+    Vector<string> lines;
+    readEntireFile(in, lines);
+    int count = 0;
+
+    for (int i=0; i < lines.size(); i++) {
+        if (i % 2 == 0) {
+            string inside = lines[i +1];
+            Set<string> gatheredTok = gatherTokens(inside);
+            string GetUrl = lines[i];
+            for (string tok : gatheredTok) {
+                index[tok].add(GetUrl);
+            }
+            count += 1;
+        }
+
+    }
+
+    return count;
+}
+
+// in findQueryMatches, I first checked off if our query is only one word and immediately return it. For the rest of the cases,
+// depending on whether the first char is + or - or another char, we add/subtract the URL that are added to the result set
+Set<string> findQueryMatches(Map<string, Set<string>>& index, string query) {
+    Set<string> result;
+    Vector<string> splitquery = stringSplit(query, " ");
+
+    if (splitquery.size() == 1){
+        Set<string> onequery = index[query];
+        return onequery;
+    }
+    // result = index[splitquery[0]];
+    for (string splitQ : splitquery) {
+        char operSplit = splitQ[0];
+        if (operSplit == '+') {
+            string cleanedT = cleanToken(splitQ);
+            result.intersect(index[cleanedT]);
+        }
+        else if (operSplit == '-') {
+            string cleanedT = cleanToken(splitQ);
+            result.difference(index[cleanedT]);
+        }
+        else {
+            string cleanedT = cleanToken(splitQ);
+            result.unionWith(index[cleanedT]);
+        }
+    }
+    return result;
+}
+
+
+
+// searchEngine puts all the functions together and prints out pages found and terms found
+// while query is not an emptry string, prints out pages found and terms found for each "query" inputted
+void searchEngine(string dbfile) {
+    Map<string, Set<string>> index;
+    int WebPages = buildIndex(dbfile,index);
+    Vector<string> WebKeys = index.keys();
+    int WebKeysSize = WebKeys.size();
+    cout << "Stand by while building index..." << endl;
+    cout << "Indexed " << WebPages << " pages containing " << WebKeysSize << " unique terms." << endl;
+    string query = getLine("enter a query: ");
+    while (query != "") {
+        Set<string> QueryMatch = findQueryMatches(index, query);
+        cout << "found " << QueryMatch.size() << " matching pages" << endl;
+        cout << QueryMatch << endl;
+        query = getLine("enter a query: ");
+    }
+}
