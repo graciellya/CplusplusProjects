@@ -1,0 +1,202 @@
+#include <iostream>
+#include <fstream>
+#include "error.h"
+#include "filelib.h"
+#include "grid.h"
+#include "maze.h"
+#include "mazegraphics.h"
+#include "queue.h"
+#include "set.h"
+#include "stack.h"
+#include "vector.h"
+#include "SimpleTest.h" // IWYU pragma: keep (needed to quiet spurious warning)
+using namespace std;
+
+
+
+// The generateValidMoves function checks if one step in North, South, West, and East direction is valid.
+// I implemented this by creating a vector with each possible single step and looping over each possible move
+// and checking whether it is true and in bounds. If so, the functions adds the move to the neighbors set and returns it
+
+Set<GridLocation> generateValidMoves(Grid<bool>& maze, GridLocation cur) {
+    Set<GridLocation> neighbors;
+
+    Vector<GridLocation> vec = {{cur.row-1,cur.col},{cur.row, cur.col - 1}, {cur.row+1, cur.col}, {cur.row, cur.col + 1}};
+
+    for (int i = 0; i < vec.size(); i++) {
+        if (maze.inBounds(vec[i].row, vec[i].col) && maze[vec[i]]) {
+            neighbors.add(vec[i]);
+        }
+    }
+    return neighbors;
+}
+
+// The validatePath function goes through all the conditions using pick-off method
+// it then loops over each path in path vector checking if it's invalid or has been used already
+
+void validatePath(Grid<bool>& maze, Vector<GridLocation>& path) {
+    if (path.isEmpty()) {
+        error("Path is empty!");
+    }
+    if (path[0] != GridLocation(0,0)) {
+        error("Invalid starting point");
+    }
+
+    if (path[path.size()-1] != GridLocation(maze.numRows() -1, maze.numCols()-1)) {
+        error("Invalid final point");
+    }
+    Set<GridLocation> distinct;
+    for (int i = 1; i< path.size(); i++) {
+        if (!generateValidMoves(maze, path[i-1]).contains(path[i])) {
+            error("Invalid path");
+        }
+        if (distinct.contains(path[i])) {
+            error("Location already used");
+        }
+    }
+
+
+
+
+    /* If you find a problem with the path, call error() to report it.
+     * If the path is a valid solution, then this function should run to completion
+     * without raising any errors.
+     */
+}
+
+// solveMazeBFS is an algorithm that looks at the first cell first and enqueues it to the path vector
+// it then loops over each elem in the allPaths vector checking if the last elem is at the last cell in the maze
+// if it isn't, then it loops through the elem checking if its valid and if it has been visited before
+// and if it passes those checks, then we sum current and the elem and add it to viable vector
+
+Vector<GridLocation> solveMazeBFS(Grid<bool>& maze) {
+    Vector<GridLocation> path;
+    Queue<Vector<GridLocation>> allPaths;
+
+
+    drawMaze(maze);
+
+    GridLocation entry = {0,0};
+    path.add(entry);
+    allPaths.enqueue(path);
+    Set<GridLocation> visited;
+    Vector<GridLocation> viable;
+
+
+    while (!allPaths.isEmpty()) {
+        Vector<GridLocation> current = allPaths.dequeue();
+        visited.add(current[current.size()-1]);
+        highlightPath(current, "green", 10);
+        if (current[current.size()-1] == GridLocation(maze.numRows() -1, maze.numCols()-1)) {
+            return current;
+        }
+        else {
+            Set<GridLocation> validmove = generateValidMoves(maze, current.get((current.size()-1)));
+                for (GridLocation elem : validmove) {
+                    if (!visited.contains(elem)) {
+                        viable = current + elem;
+                        allPaths.enqueue(viable);
+                    }
+            }
+        }
+    }
+
+
+    return path;
+}
+
+// The solveMazeDFS algorithm uses the same logic and mehods as solveMazeBFS, except we use Sets and pop()/push()
+
+Vector<GridLocation> solveMazeDFS(Grid<bool>& maze) {
+    Vector<GridLocation> path;
+    Stack<Vector<GridLocation>> allPaths;
+
+    drawMaze(maze);
+    GridLocation entry = {0,0};
+    path.add(entry);
+    allPaths.push(path);
+    Set<GridLocation> visited;
+    Vector<GridLocation> viable;
+
+
+    while (!allPaths.isEmpty()) {
+        Vector<GridLocation> current = allPaths.pop();
+        highlightPath(current, "green", 10);
+        visited.add(current[current.size()-1]);
+        if (current[current.size()-1] == GridLocation(maze.numRows() -1, maze.numCols()-1)) {
+            return current;
+        }
+        else {
+            Set<GridLocation> validmove = generateValidMoves(maze, current.get((current.size()-1)));
+            for (GridLocation elem : validmove) {
+                    if (!visited.contains(elem)) {
+                        viable = current + elem;
+                        allPaths.push(viable);
+                    }
+            }
+        }
+    }
+
+
+    return path;
+}
+
+/*
+ * The given readMazeFile function correctly reads a well-formed
+ * maze from a file.
+ *
+ * This provided function is fully correct. You do not need to change
+ * any of the code in this function.
+ */
+void readMazeFile(string filename, Grid<bool>& maze) {
+    /* The following code reads data from the file into a Vector
+     * of strings representing the lines of the file.
+     */
+    ifstream in;
+
+    if (!openFile(in, filename))
+        error("Cannot open file named " + filename);
+
+    Vector<string> lines;
+    readEntireFile(in, lines);
+
+    /* Now that the file data has been read into the Vector, populate
+     * the maze grid.
+     */
+    int numRows = lines.size();        // rows is count of lines
+    int numCols = lines[0].length();   // cols is length of line
+    maze.resize(numRows, numCols);     // resize grid dimensions
+
+    for (int r = 0; r < numRows; r++) {
+        if (lines[r].length() != numCols) {
+            error("Maze row has inconsistent number of columns");
+        }
+        for (int c = 0; c < numCols; c++) {
+            char ch = lines[r][c];
+            if (ch == '@') {        // wall
+                maze[r][c] = false;
+            } else if (ch == '-') { // corridor
+                maze[r][c] = true;
+            } else {
+                error("Maze location has invalid character: '" + charToString(ch) + "'");
+            }
+        }
+    }
+}
+
+/* The given readSolutionFile correctly reads a path from a file.
+ *
+ * This provided function is fully correct. You do not need to change
+ * any of the code in this function.
+ */
+void readSolutionFile(string filename, Vector<GridLocation>& soln) {
+    ifstream in;
+
+    if (!openFile(in, filename)) {
+        error("Cannot open file named " + filename);
+    }
+
+    if (!(in >> soln)) {// if not successfully read
+        error("Maze solution did not have the correct format.");
+    }
+}
